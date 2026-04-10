@@ -6,14 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Tabel users menggunakan role_id (FK) bukan enum/string langsung.
-     * Alasan: referential integrity terjaga, query JOIN lebih efisien dengan index,
-     * dan perubahan nama role tidak memerlukan update massal di tabel users.
-     *
-     * google_id diindex karena dipakai sebagai lookup key pada OAuth callback.
-     * username diindex karena menjadi primary lookup pada form login.
-     */
+    
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {

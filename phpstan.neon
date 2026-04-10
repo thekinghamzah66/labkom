@@ -1,0 +1,14 @@
+parameters:
+    ignoreErrors:
+        - '#Call to an undefined method (.*)Mockery(.*)shouldReceive#'
+        -  '#Call to an undefined method (.*)shouldReceive#'
+        - '#Undefined method#'
+        - '#Call to unknown method#'
+    paths:
+        - tests/
+
+includes:
+    - vendor/phpstan/extension-installer/rules.neon
+
+typeAliases:
+    MockInterface: Mockery\LegacyMockInterface|Mockery\MockInterface

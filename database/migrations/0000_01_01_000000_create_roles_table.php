@@ -6,11 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Skema roles dibuat sebagai tabel terpisah (bukan enum) untuk mendukung
-     * skalabilitas: penambahan role baru tidak memerlukan ALTER TABLE pada tabel users.
-     * Setiap role memiliki slug unik sebagai identifier yang aman untuk routing.
-     */
+
     public function up(): void
     {
         Schema::create('roles', function (Blueprint $table) {

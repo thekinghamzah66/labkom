@@ -86,7 +86,7 @@
 
         {{-- Main Glass Card --}}
         <div class="glass rounded-3xl p-8">
-            
+
             <form method="POST" action="{{ route('login.post') }}">
                 @csrf
 
