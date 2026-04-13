@@ -7,21 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * RoleMiddleware
- *
- * Middleware yang memproteksi route berdasarkan role user.
- * Mendukung single role: role:mahasiswa
- * Mendukung multiple roles: role:kalab,aslab
- *
- * Cara pendaftaran di bootstrap/app.php (Laravel 11/12):
- *
- *   ->withMiddleware(function (Middleware $middleware) {
- *       $middleware->alias([
- *           'role' => \App\Http\Middleware\RoleMiddleware::class,
- *       ]);
- *   })
- */
 class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, string ...$roles): Response

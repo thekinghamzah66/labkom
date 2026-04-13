@@ -1,109 +1,104 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
-use App\Http\Controllers\Dashboard\AslabController;
-use App\Http\Controllers\Dashboard\DosenController;
-use App\Http\Controllers\Dashboard\KalabController;
-use App\Http\Controllers\Dashboard\MahasiswaController;
-use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Kalab\MonitoringController;
+use App\Http\Controllers\Kalab\ResourceController;
+use App\Http\Controllers\Kalab\ScheduleController;
+use App\Http\Controllers\Aslab\GradingController;
+use App\Http\Controllers\Aslab\AttendanceController;
+use App\Http\Controllers\Aslab\TroubleshootingController;
+use App\Http\Controllers\Mahasiswa\ModuleController;
+use App\Http\Controllers\Mahasiswa\SubmissionController;
+use App\Http\Controllers\Mahasiswa\ProgressController;
+use App\Http\Controllers\Dosen\ReviewController;
+use App\Http\Controllers\Dosen\MonitoringController as DosenMonitoringController;
 
 Route::middleware('guest')->group(function () {
-
-    // 1. Halaman Landing: Carousel Pemilihan Role
     Route::get('/', [AuthController::class, 'showRoleSelection'])->name('welcome');
-
-    // 2. Halaman Form Login: Muncul setelah pilih role (parameter {role} adalah slug)
     Route::get('/login/{role}', [AuthController::class, 'showLogin'])->name('login');
-
-    // 3. Handle Proses Login Internal
     Route::post('/login', [AuthController::class, 'login'])->name('login.post');
-
-    // 4. Google OAuth
-    Route::post('/auth/google/redirect', [AuthController::class, 'redirectToGoogle'])
-         ->name('auth.google.redirect');
-
-    Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])
-         ->name('auth.google.callback');
+    Route::post('/auth/google/redirect', [AuthController::class, 'redirectToGoogle'])->name('auth.google.redirect');
+    Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 });
 
-// Logout (hanya untuk user yang sudah login)
 Route::post('/logout', [AuthController::class, 'logout'])
      ->name('logout')
      ->middleware('auth');
 
 // =============================================================================
-// DASHBOARD ROUTES — Diproteksi auth + role masing-masing
+// KALAB
 // =============================================================================
-
-/**
- * Dashboard KALAB (Kepala Laboratorium)
- * Role yang diizinkan: kalab
- */
 Route::middleware(['auth', 'role:kalab'])
      ->prefix('kalab')
      ->name('kalab.')
      ->group(function () {
 
-    Route::get('/dashboard', [KalabController::class, 'index'])->name('dashboard');
-    Route::get('/users', [KalabController::class, 'manageUsers'])->name('users');
-    Route::get('/laporan', [KalabController::class, 'laporan'])->name('laporan');
-    // Tambahkan route KALAB lainnya di sini
+    // ✅ Dashboard langsung return view, tidak perlu controller
+    Route::get('/dashboard', fn() => view('kalab.dashboard'))->name('dashboard');
+
+    Route::get('/monitoring', [MonitoringController::class, 'index'])->name('monitoring');
+    Route::get('/resources', [ResourceController::class, 'index'])->name('resources');
+    Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules');
+    Route::post('/schedules/finalize', [ScheduleController::class, 'finalize'])->name('schedules.finalize');
 });
 
-/**
- * Dashboard MAHASISWA
- * Role yang diizinkan: mahasiswa
- */
+// =============================================================================
+// MAHASISWA
+// =============================================================================
 Route::middleware(['auth', 'role:mahasiswa'])
      ->prefix('mahasiswa')
      ->name('mahasiswa.')
      ->group(function () {
 
-    Route::get('/dashboard', [MahasiswaController::class, 'index'])->name('dashboard');
-    Route::get('/jadwal', [MahasiswaController::class, 'jadwal'])->name('jadwal');
-    Route::get('/nilai', [MahasiswaController::class, 'nilai'])->name('nilai');
-    // Tambahkan route MAHASISWA lainnya di sini
+    // ✅ Dashboard langsung return view
+    Route::get('/dashboard', fn() => view('mahasiswa.dashboard'))->name('dashboard');
+
+    Route::get('/modules', [ModuleController::class, 'index'])->name('modules');
+    Route::get('/submissions', [SubmissionController::class, 'index'])->name('submissions');
+    Route::post('/submissions/submit', [SubmissionController::class, 'submit'])->name('submissions.submit');
+    Route::get('/progress', [ProgressController::class, 'index'])->name('progress');
 });
 
-/**
- * Dashboard ASISTEN LABORATORIUM
- * Role yang diizinkan: aslab
- */
+// =============================================================================
+// ASLAB
+// =============================================================================
 Route::middleware(['auth', 'role:aslab'])
      ->prefix('aslab')
      ->name('aslab.')
      ->group(function () {
 
-    Route::get('/dashboard', [AslabController::class, 'index'])->name('dashboard');
-    Route::get('/praktikum', [AslabController::class, 'praktikum'])->name('praktikum');
-    Route::get('/penilaian', [AslabController::class, 'penilaian'])->name('penilaian');
-    // Tambahkan route ASLAB lainnya di sini
+    // ✅ Dashboard langsung return view
+    Route::get('/dashboard', fn() => view('aslab.dashboard'))->name('dashboard');
+
+    Route::get('/grading', [GradingController::class, 'index'])->name('grading');
+    Route::post('/grading/submit', [GradingController::class, 'submitGrade'])->name('grading.submit');
+    Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance');
+    Route::post('/attendance/mark', [AttendanceController::class, 'markAttendance'])->name('attendance.mark');
+    Route::get('/troubleshooting', [TroubleshootingController::class, 'troubleshooting'])->name('troubleshooting');
 });
 
-/**
- * Dashboard DOSEN PEMBIMBING
- * Role yang diizinkan: dosen-pembimbing
- */
+// =============================================================================
+// DOSEN PEMBIMBING
+// =============================================================================
 Route::middleware(['auth', 'role:dosen-pembimbing'])
      ->prefix('dosen')
-     ->name('dosen-pembimbing.')
+     ->name('dosen.')
      ->group(function () {
 
-    Route::get('/dashboard', [DosenController::class, 'index'])->name('dashboard');
-    Route::get('/bimbingan', [DosenController::class, 'bimbingan'])->name('bimbingan');
-    Route::get('/nilai', [DosenController::class, 'nilai'])->name('nilai');
-    // Tambahkan route DOSEN lainnya di sini
+    // ✅ Dashboard langsung return view
+    Route::get('/dashboard', fn() => view('dosen.dashboard'))->name('dashboard');
+
+    Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews');
+    Route::post('/reviews/submit', [ReviewController::class, 'submitReview'])->name('reviews.submit');
+    Route::get('/monitoring', [DosenMonitoringController::class, 'index'])->name('monitoring');
 });
 
-/**
- * Contoh route yang bisa diakses oleh MULTIPLE roles:
- * KALAB dan ASLAB sama-sama bisa melihat halaman laporan umum.
- */
+// =============================================================================
+// MULTI ROLE
+// =============================================================================
 Route::middleware(['auth', 'role:kalab,aslab'])
      ->prefix('lab')
      ->name('lab.')
      ->group(function () {
-
-    Route::get('/laporan-umum', fn () => view('lab.laporan-umum'))->name('laporan-umum');
+    Route::get('/laporan-umum', fn() => view('lab.laporan-umum'))->name('laporan-umum');
 });

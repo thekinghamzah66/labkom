@@ -3,140 +3,119 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\LoginLog;
+use App\Http\Requests\Auth\GoogleRedirectRequest;
+use App\Http\Requests\Auth\LoginRequest;
 use App\Models\Role;
-use App\Models\User;
+use App\Services\Auth\AuthenticationService;
+use App\Services\Auth\GoogleOAuthService;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash; // Perbaikan dari Facadesx
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\User as SocialiteUser;
 
 class AuthController extends Controller
 {
-    // -------------------------------------------------------------------------
-    // 1. Halaman Pilihan Role (Carousel) - Route: /
-    // -------------------------------------------------------------------------
-    public function showRoleSelection()
-    {
-        if (Auth::check()) {
-            return $this->redirectToDashboard(Auth::user());
-        }
+    public function __construct(
+        private AuthenticationService $authService,
+        private GoogleOAuthService $oauthService,
+    ) {}
 
-        // Ambil role aktif untuk ditampilkan di carousel welcome
+    public function showRoleSelection(): View|RedirectResponse
+    {
         $roles = Role::active()->orderBy('id')->get();
 
-        return view('welcome', compact('roles'));
+        // ✅ Siapkan JSON di controller, hindari arrow function di Blade
+        $rolesJson = $roles->map(function ($r) {
+            return [
+                'id'   => $r->id,
+                'name' => $r->name,
+                'slug' => $r->slug,
+            ];
+        })->values();
+
+        return view('welcome', compact('roles', 'rolesJson'));
     }
 
-    // -------------------------------------------------------------------------
-    // 2. Halaman Form Login (Setelah Pilih Role) - Route: /login/{role}
-    // -------------------------------------------------------------------------
-    public function showLogin($role_slug)
+    public function showLogin(string $role_slug): View|RedirectResponse
     {
-        if (Auth::check()) {
-            return $this->redirectToDashboard(Auth::user());
-        }
-
-        // Cari role berdasarkan slug (mahasiswa, aslab, dll)
-        $selectedRole = Role::where('slug', $role_slug)->active()->firstOrFail();
-
+        $selectedRole = Role::bySlug($role_slug)->active()->firstOrFail();
         return view('auth.login', compact('selectedRole'));
     }
 
-    // -------------------------------------------------------------------------
-    // 3. Login via Form (Username + Password)
-    // -------------------------------------------------------------------------
-    public function login(Request $request): RedirectResponse
+    public function login(LoginRequest $request): RedirectResponse
     {
-        $request->validate([
-            'username'      => ['required', 'string', 'max:100'],
-            'password'      => ['required', 'string'],
-            'role_selected' => ['required', 'string', 'exists:roles,slug'],
-        ], [
-            'role_selected.required' => 'Terjadi kesalahan sistem, role tidak terdeteksi.',
-        ]);
-
         $throttleKey = 'login.' . $request->ip();
 
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
             $seconds = RateLimiter::availableIn($throttleKey);
-            $this->writeLog(null, $request, 'failed_locked', "IP terkunci. Coba lagi dalam {$seconds} detik.");
+
+            $this->authService->recordFailedLogin(
+                null,
+                $request,
+                "IP terkunci. Coba lagi dalam {$seconds} detik.",
+                'failed_locked'
+            );
 
             throw ValidationException::withMessages([
                 'username' => "Terlalu banyak percobaan login. Silakan tunggu {$seconds} detik.",
             ]);
         }
 
-        /** @var User|null $user */
-        $user = User::forLogin($request->username)->first();
+        try {
+            $user = $this->authService->authenticate(
+                $request->username,
+                $request->password,
+                $request->role_selected
+            );
 
-        // Validasi Kredensial
-        if (!$user || !Hash::check($request->password, $user->password)) {
+            RateLimiter::clear($throttleKey);
+            $this->authService->recordSuccessfulLogin($user, $request);
+
+            Auth::login($user, $request->boolean('remember'));
+            $request->session()->regenerate();
+
+            return $this->redirectToDashboard($user);
+
+        } catch (AuthenticationException $e) {
             RateLimiter::hit($throttleKey, 60);
-            $this->writeLog($user, $request, 'failed_credentials', 'Username/password salah.');
 
-            if ($user) { $user->recordFailedLogin(); }
+            $this->authService->recordFailedLogin(
+                null,
+                $request,
+                $e->getMessage(),
+                'failed_' . $this->getFailureType($e->getMessage())
+            );
 
             throw ValidationException::withMessages([
-                'username' => 'Kombinasi username dan password tidak ditemukan.',
+                'username' => $e->getMessage(),
             ]);
         }
-
-        // Proteksi Role Mismatch (Pilih Mahasiswa tapi login pakai akun Kalab)
-        if ($user->role->slug !== $request->role_selected) {
-            RateLimiter::hit($throttleKey, 60);
-            $this->writeLog($user, $request, 'failed_role_mismatch', "User {$user->role->name} mencoba login sebagai {$request->role_selected}.");
-
-            throw ValidationException::withMessages([
-                'username' => "Akun Anda terdaftar sebagai {$user->role->name}. Silakan kembali ke halaman awal dan pilih role yang benar.",
-            ]);
-        }
-
-        // Cek Status Aktif & Lockout
-        if (!$user->is_active) {
-            $this->writeLog($user, $request, 'failed_inactive', 'Akun nonaktif.');
-            throw ValidationException::withMessages(['username' => 'Akun Anda dinonaktifkan oleh admin.']);
-        }
-
-        if ($user->isLocked()) {
-            $minutes = now()->diffInMinutes($user->locked_until);
-            throw ValidationException::withMessages(['username' => "Akun sedang dikunci. Tersisa {$minutes} menit lagi."]);
-        }
-
-        // Login Sukses
-        RateLimiter::clear($throttleKey);
-        $user->resetLoginAttempts();
-        Auth::login($user, $request->boolean('remember'));
-        $request->session()->regenerate();
-
-        $this->writeLog($user, $request, 'success');
-
-        return $this->redirectToDashboard($user);
     }
 
-    // -------------------------------------------------------------------------
-    // 4. Logout
-    // -------------------------------------------------------------------------
     public function logout(Request $request): RedirectResponse
     {
+        $this->authService->recordFailedLogin(
+            Auth::user(),
+            $request,
+            '',
+            'logout'
+        );
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('welcome')->with('status', 'Berhasil keluar dari sistem.');
+        return redirect()->route('welcome')
+                        ->with('status', 'Berhasil keluar dari sistem.');
     }
 
-    // -------------------------------------------------------------------------
-    // 5. Google OAuth Logic
-    // -------------------------------------------------------------------------
-    public function redirectToGoogle(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
+    public function redirectToGoogle(GoogleRedirectRequest $request): \Symfony\Component\HttpFoundation\RedirectResponse
     {
-        $request->validate(['role_selected' => ['required', 'exists:roles,slug']]);
-        
-        // Simpan role ke session agar saat balik dari Google kita tahu user mau masuk sebagai apa
         session(['oauth_role_selected' => $request->role_selected]);
 
         return Socialite::driver('google')->redirect();
@@ -147,63 +126,48 @@ class AuthController extends Controller
         $roleSelected = session()->pull('oauth_role_selected');
 
         if (!$roleSelected) {
-            return redirect()->route('welcome')->withErrors(['role_selected' => 'Sesi role hilang, silakan pilih ulang.']);
+            return redirect()->route('welcome')
+                ->withErrors(['role_selected' => 'Sesi role hilang, silakan pilih ulang.']);
         }
 
         try {
             $googleUser = Socialite::driver('google')->user();
         } catch (\Exception $e) {
-            return redirect()->route('welcome')->withErrors(['username' => 'Gagal terhubung ke Google.']);
+            return redirect()->route('welcome')
+                ->withErrors(['username' => 'Gagal terhubung ke Google. Silakan coba lagi.']);
         }
 
-        $user = User::where('google_id', $googleUser->getId())
-                    ->orWhere('email', $googleUser->getEmail())
-                    ->first();
+        assert($googleUser instanceof SocialiteUser);
 
-        if (!$user) {
-            return redirect()->route('welcome')->withErrors(['username' => 'Email Google Anda belum terdaftar.']);
+        try {
+            $user = $this->oauthService->authenticate($googleUser, $roleSelected);
+            $this->oauthService->updateUserWithGoogleData($user, $googleUser);
+            $this->oauthService->recordSuccessfulLogin($user, $request);
+
+            Auth::login($user, true);
+            $request->session()->regenerate();
+
+            return $this->redirectToDashboard($user);
+
+        } catch (AuthenticationException $e) {
+            return redirect()->route('welcome')
+                ->withErrors(['username' => $e->getMessage()]);
         }
-
-        // Cek apakah role akun Google sesuai dengan yang dipilih di awal
-        if ($user->role->slug !== $roleSelected) {
-            return redirect()->route('login', $roleSelected)->withErrors([
-                'username' => "Email ini terdaftar sebagai {$user->role->name}, bukan {$roleSelected}."
-            ]);
-        }
-
-        // Update data Google jika diperlukan
-        $user->update([
-            'google_id'    => $googleUser->getId(),
-            'google_token' => $googleUser->token,
-            'avatar'       => $user->avatar ?? $googleUser->getAvatar(),
-        ]);
-
-        Auth::login($user, true);
-        $request->session()->regenerate();
-        $this->writeLog($user, $request, 'success', 'Google OAuth Login');
-
-        return $this->redirectToDashboard($user);
     }
 
-    // -------------------------------------------------------------------------
-    // Private Helpers
-    // -------------------------------------------------------------------------
-    private function redirectToDashboard(User $user): RedirectResponse
+    private function redirectToDashboard(\App\Models\User $user): RedirectResponse
     {
         return redirect()->route($user->role->dashboard_route);
     }
 
-    private function writeLog(?User $user, Request $request, string $status, ?string $reason = null): void
+    private function getFailureType(string $message): string
     {
-        LoginLog::create([
-            'user_id'            => $user?->id,
-            'username_attempted' => $request->input('username', $user?->username ?? 'oauth'),
-            'role_attempted'     => $request->input('role_selected', session('oauth_role_selected', 'unknown')),
-            'ip_address'         => $request->ip(),
-            'user_agent'         => $request->userAgent(),
-            'status'             => $status,
-            'failure_reason'     => $reason,
-            'attempted_at'       => now(),
-        ]);
+        return match (true) {
+            str_contains($message, 'password') => 'credentials',
+            str_contains($message, 'role')     => 'role_mismatch',
+            str_contains($message, 'dinonaktifkan') => 'inactive',
+            str_contains($message, 'dikunci')  => 'locked',
+            default                            => 'unknown',
+        };
     }
 }
