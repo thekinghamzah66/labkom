@@ -92,6 +92,23 @@ class AuthenticationService
     }
 
     /**
+     * Record user logout activity.
+     * 
+     * @param User|null $user The authenticated user logging out
+     * @param Request $request The HTTP request
+     * @return void
+     */
+    public function recordLogout(?User $user, Request $request): void
+    {
+        $this->logLoginAttempt(
+            user: $user,
+            request: $request,
+            status: 'success',
+            reason: 'User logged out successfully'
+        );
+    }
+
+    /**
      * Log a login attempt to the database.
      *
      * @param User|null $user The user, or null if user not found
@@ -108,7 +125,7 @@ class AuthenticationService
         LoginLog::create([
             'user_id'            => $user?->id,
             'username_attempted' => $request->input('username', $user?->username ?? 'unknown'),
-            'role_attempted'     => $request->input('role_selected', 'unknown'),
+            'role_attempted'     => $request->input('role_selected', $user?->role?->slug ?? 'unknown'),
             'ip_address'         => $request->ip(),
             'user_agent'         => $request->userAgent(),
             'status'             => $status,

@@ -3,29 +3,35 @@
     $name = auth()->user()?->name ?? '';
 
     $menus = [
-        'kalab' => [
-            ['label' => 'Dashboard',   'route' => 'kalab.dashboard',   'icon' => 'home'],
-            ['label' => 'Monitoring',  'route' => 'kalab.monitoring',  'icon' => 'chart'],
-            ['label' => 'Jadwal',      'route' => 'kalab.schedules',   'icon' => 'calendar'],
-            ['label' => 'Sumber Daya', 'route' => 'kalab.resources',   'icon' => 'cube'],
-        ],
-        'mahasiswa' => [
-            ['label' => 'Dashboard',  'route' => 'mahasiswa.dashboard',    'icon' => 'home'],
-            ['label' => 'Modul',      'route' => 'mahasiswa.modules',      'icon' => 'book'],
-            ['label' => 'Tugas',      'route' => 'mahasiswa.submissions',  'icon' => 'document'],
-            ['label' => 'Progres',    'route' => 'mahasiswa.progress',     'icon' => 'chart'],
-        ],
-        'aslab' => [
-            ['label' => 'Dashboard',      'route' => 'aslab.dashboard',      'icon' => 'home'],
-            ['label' => 'Penilaian',      'route' => 'aslab.grading',        'icon' => 'star'],
-            ['label' => 'Kehadiran',      'route' => 'aslab.attendance',     'icon' => 'check'],
-            ['label' => 'Troubleshoot',   'route' => 'aslab.troubleshooting','icon' => 'wrench'],
-        ],
-        'dosen-pembimbing' => [
-            ['label' => 'Dashboard',   'route' => 'dosen.dashboard',   'icon' => 'home'],
-            ['label' => 'Review',      'route' => 'dosen.reviews',     'icon' => 'document'],
-            ['label' => 'Monitoring',  'route' => 'dosen.monitoring',  'icon' => 'chart'],
-        ],
+'kalab' => [
+    ['label' => 'Master Dashboard',  'route' => 'kalab.dashboard',         'icon' => 'chart-bar'],
+    ['label' => 'Manajemen Matkul',  'route' => 'kalab.practicums.index',  'icon' => 'book-open'], // Menu Baru
+    ['label' => 'Kelulusan Final',   'route' => 'kalab.graduation',       'icon' => 'academic-cap'],
+    ['label' => 'User Management',   'route' => 'kalab.users',            'icon' => 'users'],
+    ['label' => 'Export Report',     'route' => 'kalab.export',           'icon' => 'document-download'],
+],
+       'mahasiswa' => [
+    ['label' => 'Dashboard',  'route' => 'mahasiswa.dashboard',    'icon' => 'home'],
+    ['label' => 'Modul',      'route' => 'mahasiswa.modules',      'icon' => 'book'],
+    ['label' => 'Tugas',      'route' => 'mahasiswa.submissions',  'icon' => 'document-text'],
+    ['label' => 'Progres',    'route' => 'mahasiswa.progress',     'icon' => 'chart-bar'],
+    ['label' => 'Scan QR',    'route' => 'mahasiswa.scan',         'icon' => 'qr-code'],
+    ['label' => 'Logbook',    'route' => 'mahasiswa.logbook',      'icon' => 'book-open'],
+],
+       'aslab' => [
+    ['label' => 'Dashboard',    'route' => 'aslab.dashboard',     'icon' => 'home'],
+    ['label' => 'Data Mahasiswa','route' => 'aslab.mahasiswa',     'icon' => 'users'], // Menu baru
+    ['label' => 'Data Sesi',     'route' => 'aslab.sesi',          'icon' => 'calendar'], // Menu baru
+    ['label' => 'CMS Materi',   'route' => 'aslab.modules.index', 'icon' => 'book'],
+    ['label' => 'Penilaian',    'route' => 'aslab.grading',       'icon' => 'star'],
+    ['label' => 'Kehadiran QR', 'route' => 'aslab.attendance',    'icon' => 'check'],
+],
+'dosen-pembimbing' => [
+    ['label' => 'Dashboard',       'route' => 'dosen-pembimbing.dashboard',             'icon' => 'home'],
+    ['label' => 'Validasi Soal',    'route' => 'dosen-pembimbing.validation',            'icon' => 'check'],
+['label' => 'Penilaian Ujian', 'route' => 'dosen-pembimbing.penilaian-ujian.index', 'icon' => 'clipboard-check'],
+    ['label' => 'Logbook',         'route' => 'dosen-pembimbing.logbook',               'icon' => 'book'],
+],
     ];
 
     $colors = [
@@ -39,19 +45,37 @@
     $navMenu = $menus[$role]  ?? [];
 @endphp
 
-<aside class="w-64 bg-white border-r border-gray-100 flex flex-col fixed top-0 left-0 h-full z-20">
+{{-- 1. Overlay (Hanya muncul di mobile saat sidebar terbuka) --}}
+<div x-show="sidebarOpen" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     @click="sidebarOpen = false" 
+     class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-30 lg:hidden">
+</div>
 
-    {{-- Logo --}}
-    <div class="px-6 py-5 border-b border-gray-100">
+{{-- 2. Sidebar --}}
+<aside 
+    :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+    class="w-64 bg-white border-r border-gray-100 flex flex-col fixed top-0 left-0 h-full z-40 transition-transform duration-300 ease-in-out lg:translate-x-0">
+
+   {{-- Logo --}}
+    <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white">
         <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl {{ $color['bg'] }} flex items-center justify-center shadow-sm">
-                <span class="text-white font-bold text-sm">L</span>
+            <div class="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center bg-white border border-gray-50 p-1 shadow-sm">
+                <img src="{{ asset('img/logo-untag.jpg') }}" alt="Logo Untag" class="w-full h-full object-contain">
             </div>
             <div>
                 <p class="font-display font-bold text-gray-900 text-sm leading-tight">Labkom</p>
-                <p class="text-[10px] text-gray-400 uppercase tracking-wider">UNTAG Surabaya</p>
+                <p class="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Untag Surabaya</p>
             </div>
         </div>
+        <button @click="sidebarOpen = false" class="lg:hidden text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
     </div>
 
     {{-- Role Badge --}}
@@ -72,26 +96,27 @@
                     <a href="{{ route($item['route']) }}"
                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
                               {{ $active ? $color['light'].' '.$color['text'].' font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800' }}">
-                        {{-- Icon --}}
                         <span class="w-5 h-5 flex-shrink-0">
                             @if($item['icon'] === 'home')
                                 <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
                             @elseif($item['icon'] === 'chart')
                                 <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
-                            @elseif($item['icon'] === 'calendar')
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
-                            @elseif($item['icon'] === 'cube')
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
-                            @elseif($item['icon'] === 'book')
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+                            @elseif($item['icon'] === 'graduation')
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A5.905 5.905 0 018 3.993a5.905 5.905 0 014.28 1.933A5.905 5.905 0 0116.28 3.993a5.905 5.905 0 014.717 5.341c.21.136.421.277.63.413m-15.482 0l6.57 4.027a1.125 1.125 0 001.125 0l6.57-4.027L12 6.106l-7.74 4.041z"/></svg>
+                            @elseif($item['icon'] === 'users')
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
                             @elseif($item['icon'] === 'document')
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                            @elseif($item['icon'] === 'camera')
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15a2.25 2.25 0 002.25-2.25V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" /></svg>
+                            @elseif($item['icon'] === 'book')
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
                             @elseif($item['icon'] === 'star')
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg>
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>
                             @elseif($item['icon'] === 'check')
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            @elseif($item['icon'] === 'wrench')
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z"/></svg>
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            @else
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path d="M12 6v12m6-6H6"/></svg>
                             @endif
                         </span>
                         {{ $item['label'] }}

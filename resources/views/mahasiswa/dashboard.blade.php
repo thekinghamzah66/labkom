@@ -1,139 +1,77 @@
-<x-layouts.app title="Dashboard KALAB">
-
-    {{-- Stats Cards --}}
-    <div class="grid grid-cols-4 gap-5 mb-8">
-        @php
-            $stats = [
-                ['label' => 'Total Mahasiswa', 'value' => \App\Models\User::whereHas('role', fn($q) => $q->where('slug','mahasiswa'))->where('is_active',true)->count(), 'icon' => '🎓', 'color' => 'bg-sky-50 border-sky-100',    'text' => 'text-sky-600'],
-                ['label' => 'Total ASLAB',     'value' => \App\Models\User::whereHas('role', fn($q) => $q->where('slug','aslab'))->where('is_active',true)->count(),     'icon' => '🧪', 'color' => 'bg-emerald-50 border-emerald-100','text' => 'text-emerald-600'],
-                ['label' => 'Total Dosen',     'value' => \App\Models\User::whereHas('role', fn($q) => $q->where('slug','dosen-pembimbing'))->where('is_active',true)->count(), 'icon' => '💼', 'color' => 'bg-amber-50 border-amber-100',  'text' => 'text-amber-600'],
-                ['label' => 'User Aktif',      'value' => \App\Models\User::where('is_active',true)->count(), 'icon' => '✅', 'color' => 'bg-violet-50 border-violet-100','text' => 'text-violet-600'],
-            ];
-        @endphp
-
-        @foreach ($stats as $stat)
-            <div class="bg-white rounded-2xl border {{ $stat['color'] }} p-5 flex items-center gap-4">
-                <div class="w-12 h-12 rounded-xl {{ $stat['color'] }} flex items-center justify-center text-2xl flex-shrink-0">
-                    {{ $stat['icon'] }}
-                </div>
-                <div>
-                    <p class="text-2xl font-display font-bold {{ $stat['text'] }}">{{ $stat['value'] }}</p>
-                    <p class="text-xs text-gray-500 mt-0.5">{{ $stat['label'] }}</p>
-                </div>
-            </div>
-        @endforeach
-    </div>
-
-    <div class="grid grid-cols-3 gap-5">
-
-        {{-- Grafik user per role --}}
-        <div class="col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
-            <div class="flex items-center justify-between mb-6">
-                <div>
-                    <h3 class="font-display font-bold text-gray-900">Distribusi Pengguna</h3>
-                    <p class="text-xs text-gray-400 mt-0.5">Berdasarkan role aktif</p>
-                </div>
-            </div>
-            @php
-                $roleStats = \App\Models\Role::withCount(['users' => fn($q) => $q->where('is_active', true)])->get();
-                $maxCount  = $roleStats->max('users_count') ?: 1;
-                $roleColors = ['kalab' => '#7c3aed','mahasiswa' => '#0ea5e9','aslab' => '#10b981','dosen-pembimbing' => '#f59e0b'];
-            @endphp
-            <div class="space-y-4">
-                @foreach ($roleStats as $r)
-                    <div class="flex items-center gap-4">
-                        <p class="text-sm text-gray-600 w-36 truncate flex-shrink-0">{{ $r->name }}</p>
-                        <div class="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                            <div class="h-3 rounded-full transition-all duration-700"
-                                 style="width: {{ $maxCount > 0 ? ($r->users_count / $maxCount * 100) : 0 }}%; background-color: {{ $roleColors[$r->slug] ?? '#6b7280' }}">
-                            </div>
+<x-layouts.app title="Dashboard Mahasiswa">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {{-- Kiri: Info Sesi & Jadwal --}}
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                <h3 class="text-xl font-bold text-gray-900 mb-6">Informasi Praktikum Aktif</h3>
+                
+                @if($enrollment && $enrollment->session_name)
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="p-6 bg-violet-50 rounded-3xl border border-violet-100">
+                            <p class="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Jadwal Sesi</p>
+                            <p class="text-2xl font-black text-violet-700 mt-1">{{ $enrollment->session_name }}</p>
+                            <p class="text-sm font-bold text-violet-600 mt-2">{{ $enrollment->jam }} — Ruang {{ $enrollment->ruangan }}</p>
                         </div>
-                        <span class="text-sm font-bold text-gray-700 w-6 text-right">{{ $r->users_count }}</span>
+                        
+                        <div class="p-6 bg-emerald-50 rounded-3xl border border-emerald-100">
+                            <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Dosen Pembimbing</p>
+                            <p class="text-lg font-bold text-emerald-700 mt-1">
+                                {{ $enrollment->dosbim->name ?? 'Belum Ditentukan' }}
+                            </p>
+                            <p class="text-xs text-emerald-600 mt-1 italic">Tugas Akhir & Ujian Dosbim</p>
+                        </div>
                     </div>
-                @endforeach
-            </div>
-        </div>
-
-        {{-- Aktivitas terakhir --}}
-        <div class="bg-white rounded-2xl border border-gray-100 p-6">
-            <h3 class="font-display font-bold text-gray-900 mb-4">Pengguna Terbaru</h3>
-            @php
-                $latestUsers = \App\Models\User::with('role')->latest()->take(6)->get();
-            @endphp
-            <div class="space-y-3">
-                @forelse ($latestUsers as $u)
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                             style="background-color: {{ $roleColors[$u->role?->slug ?? ''] ?? '#6b7280' }}">
-                            {{ strtoupper(substr($u->name, 0, 1)) }}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-800 truncate">{{ $u->name }}</p>
-                            <p class="text-xs text-gray-400">{{ $u->role?->name }}</p>
-                        </div>
-                        <span class="text-[10px] text-gray-300">{{ $u->created_at->diffForHumans(null, true) }}</span>
+                @else
+                    <div class="p-10 text-center border-2 border-dashed border-gray-100 rounded-3xl">
+                        <p class="text-gray-400 font-medium">Aslab belum memplot jadwal sesi untuk Anda.</p>
                     </div>
-                @empty
-                    <p class="text-sm text-gray-400">Belum ada data.</p>
-                @endforelse
+                @endif
             </div>
-        </div>
 
-        {{-- Tabel semua user --}}
-        <div class="col-span-3 bg-white rounded-2xl border border-gray-100 p-6">
-            <div class="flex items-center justify-between mb-5">
-                <div>
-                    <h3 class="font-display font-bold text-gray-900">Daftar Pengguna</h3>
-                    <p class="text-xs text-gray-400 mt-0.5">Semua akun terdaftar</p>
+            {{-- Info Soal Terkini --}}
+            <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-900">Tugas Praktikum</h3>
+                    <a href="{{ route('mahasiswa.modules') }}" class="text-sm font-bold text-violet-600 hover:underline">Lihat Semua</a>
                 </div>
-            </div>
-            @php
-                $users = \App\Models\User::with('role')->latest()->take(10)->get();
-            @endphp
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-gray-100">
-                            <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3">Nama</th>
-                            <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3">Username</th>
-                            <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3">Email</th>
-                            <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3">Role</th>
-                            <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3">Status</th>
-                            <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3">Bergabung</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        @forelse ($users as $u)
-                            <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="py-3 font-medium text-gray-800">{{ $u->name }}</td>
-                                <td class="py-3 text-gray-500 font-mono text-xs">{{ $u->username }}</td>
-                                <td class="py-3 text-gray-500">{{ $u->email }}</td>
-                                <td class="py-3">
-                                    <span class="px-2 py-1 rounded-lg text-xs font-semibold"
-                                          style="background-color: {{ $roleColors[$u->role?->slug ?? ''] ?? '#f3f4f6' }}22; color: {{ $roleColors[$u->role?->slug ?? ''] ?? '#6b7280' }}">
-                                        {{ $u->role?->name }}
-                                    </span>
-                                </td>
-                                <td class="py-3">
-                                    @if($u->is_active)
-                                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-semibold">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Aktif
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span> Nonaktif
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="py-3 text-gray-400 text-xs">{{ $u->created_at->format('d M Y') }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="6" class="py-8 text-center text-gray-400">Belum ada data pengguna.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                <p class="text-sm text-gray-500">Silakan cek menu "Modul & Tugas" untuk mendownload soal dari Aslab.</p>
             </div>
         </div>
 
+        {{-- Kanan: Status Kelulusan --}}
+        <div class="space-y-6">
+            <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 text-center">
+                <h3 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Status Kelulusan</h3>
+                
+                @if($enrollment)
+                    @if($enrollment->status_aslab == 'lulus')
+                        <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-50">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                        <h4 class="text-2xl font-black text-emerald-600 uppercase">LULUS</h4>
+                        <p class="text-sm text-gray-500 mt-2">Selamat! Anda bisa melanjutkan ke tahap bimbingan Dosbim.</p>
+                    @elseif($enrollment->status_aslab == 'remidi')
+                        <div class="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        </div>
+                        <h4 class="text-2xl font-black text-amber-600 uppercase">REMIDI</h4>
+                        <p class="text-sm text-gray-500 mt-2">Nilai Anda belum mencukupi. Silakan hubungi Aslab untuk jadwal remidi.</p>
+                    @elseif($enrollment->status_aslab == 'gagal')
+                        <div class="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </div>
+                        <h4 class="text-2xl font-black text-red-600 uppercase">GAGAL</h4>
+                        <p class="text-sm text-gray-500 mt-2">Mohon maaf, Anda dinyatakan tidak lulus praktikum.</p>
+                    @else
+                        <div class="w-20 h-20 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <h4 class="text-xl font-bold text-gray-400 uppercase">PROSES NILAI</h4>
+                        <p class="text-sm text-gray-400 mt-2">Nilai Anda sedang diproses oleh Aslab.</p>
+                    @endif
+                @endif
+            </div>
+        </div>
     </div>
 </x-layouts.app>

@@ -99,19 +99,14 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
-        $this->authService->recordFailedLogin(
-            Auth::user(),
-            $request,
-            '',
-            'logout'
-        );
+        $this->authService->recordLogout(Auth::user(), $request);  // ← GANTI jadi ini
 
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
 
-        return redirect()->route('welcome')
-                        ->with('status', 'Berhasil keluar dari sistem.');
+    return redirect()->route('welcome')
+                    ->with('status', 'Berhasil keluar dari sistem.');
     }
 
     public function redirectToGoogle(GoogleRedirectRequest $request): \Symfony\Component\HttpFoundation\RedirectResponse
